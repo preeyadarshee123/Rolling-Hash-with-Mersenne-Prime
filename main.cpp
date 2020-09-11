@@ -1,71 +1,74 @@
-#include<bits/stdc++.h>
-//#include <ext/pb_ds/assoc_container.hpp>
-//#include <ext/pb_ds/tree_policy.hpp>
-//#include <functional>
-#define pb                    push_back
-#define ll                    long long
-#define ss                       second
-#define ff                        first
-#define rep(i, begin, end) for (__typeof(end) i = (begin) - ((begin) > (end)); i != (end) - ((begin) > (end)); i += 1 - 2 * ((begin) > (end)))
-#define eps                   0.000000001
-#define all(c)               (c).begin(),(c).end()
-#define present(c,x)         ((c).find(x) != (c).end())
-#define cpresent(c,x)        (find(all(c),x) != (c).end())
-//#define pi                   pair<int,int>
-#define pll                  pair<ll,ll>
-#define endl                 '\n'
-#define ull                  unsigned long long
-using namespace std;
-vector<string> split(const string& s, char c) {
-    vector<string> v; stringstream ss(s); string x;
-    while (getline(ss, x, c)) v.emplace_back(x); return move(v);
-}
-template<typename T, typename... Args>
-inline string arrStr(T arr, int n) {
-    stringstream s; s << "[";
-    for(int i = 0; i < n - 1; i++) s << arr[i] << ",";
-    s << arr[n - 1] << "]";
-    return s.str();
-}
+//  Rolling Hash
 
-#define debug(args...) {__evars_begin(__LINE__); __evars(split(#args, ',').begin(), args);}
-
-inline void __evars_begin(int line) { cerr << "#" << line << ": "; }
-template<typename T> inline void __evars_out_var(vector<T> val) { cerr << arrStr(val, val.size()); }
-template<typename T> inline void __evars_out_var(T* val) { cerr << arrStr(val, 10); }
-template<typename T> inline void __evars_out_var(T val) { cerr << val; }
-inline void __evars(vector<string>::iterator it) { cerr << endl; }
-
-template<typename T, typename... Args>
-inline void __evars(vector<string>::iterator it, T a, Args... args) {
-    cerr << it->substr((*it)[0] == ' ', it->length()) << "=";
-    __evars_out_var(a);
-    cerr << "; ";
-    __evars(++it, args...);
+constexpr uint64_t mod = (1ull<<61) - 1;
+int gen_base(const int before, const int after) {
+    seed_seq seq{
+        (uint64_t) chrono::duration_cast<chrono::nanoseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count(),
+        (uint64_t) __builtin_ia32_rdtsc(),
+        (uint64_t) (uintptr_t) make_unique<char>().get()
+    };
+    mt19937 rng(seq);
+    int  base = uniform_int_distribution<int>(before+1, after)(rng);
+    return base % 2 == 0 ? base-1 : base;
 }
-//using namespace __gnu_pbds;
-//typedef tree<int, null_type, int>, rb_tree_tag,tree_order_statistics_node_update> policy;
-mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
-typedef vector< int > vi;
-typedef vector< vi > vvi;
-int dx[8]={1,-1,0,0,1,1,-1,-1};
-int dy[8]={0,0,-1,1,2,-2,2,-2};
-vector<int> vis(200010,0),dis(200010,0),par(200010,0),ed(200010,0);
-vector<pair<int,int>> adj[200010];
-vector<vector<int>> ad;
-int myrandom (int i) { return std::rand()%i;}
-const int MAX=200010;
-const ull inf = 1000000007;
-// Matrix Exponentiation
-
-int main()
-{
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    //ifstream fin;
-    //ofstream fout;
-    //fin.open("input.txt");
-    //fout.open("output.txt");
-    //clock_t launch=clock();
-    
+uint64_t mul(uint64_t a, uint64_t b){
+    uint64_t l1 = (uint32_t)a, h1 = a>>32, l2 = (uint32_t)b, h2 = b>>32;
+    uint64_t l = l1*l2, m = l1*h2 + l2*h1, h = h1*h2;
+    uint64_t ret = (l&mod) + (l>>61) + (h << 3) + (m >> 29) + (m << 35 >> 3) + 1;
+    ret = (ret & mod) + (ret>>61);
+    ret = (ret & mod) + (ret>>61);
+    return ret-1;
 }
+uint64_t sub(uint64_t a, uint64_t b) {
+    return (a -= b) >= mod ? a + mod : a;
+}
+uint64_t add(uint64_t a, uint64_t b) {
+    return (a += b) < mod ? a : a - mod;
+}
+uint64_t modInverse(uint64_t x,uint64_t n){
+    uint64_t res = 1;
+    while(n){
+        if(n%2){
+            res = mul(res , x);
+        }
+        x = mul(x , x);
+        n = n/2;
+    }
+    return res;
+}
+class PolyHash{
+    public :
+    vector<uint64_t> pre,pow,invPow,suf;
+    uint64_t base;
+    uint64_t invBase;
+    void calc(string s){
+        int n = (int)s.length();
+        pre.resize(n+1,0);
+        pow.resize(n+1,1);
+        invPow.resize(n+1,1);
+        suf.resize(n+2,0);
+        for(int i = 0;i < n;i++){
+            pow[i+1] = mul(pow[i],base);
+            invPow[i+1] = mul(invPow[i],invBase);
+            pre[i+1] = add(mul(s[i],pow[i]), pre[i]);
+            suf[n-i] = add(mul(s[n-i-1],pow[i]),suf[n-i+1]);
+        }
+    }
+    // Compares two string starting from index id1 and id2 of length len
+    int cmp(int id1,int id2,int len){
+        int lo = 0,hi = len+1;
+        while(hi - lo > 1){
+            int mid = (hi + lo)/2;
+            ull p1 = mul(sub(pre[id1+mid],pre[id1]) , invPow[id1]);
+            ull p2 = mul(sub(pre[id2+mid],pre[id2]) , invPow[id2]);
+            if(p1 == p2){
+                lo = mid;
+            }
+            else{
+                hi = mid;
+            }
+        }
+        return lo;
+    }
+};
+
